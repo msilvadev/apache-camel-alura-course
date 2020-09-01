@@ -23,19 +23,39 @@ public class RotaPedidos {
 				// PADRÃO FILE SHARING
 				//nomeDoComponente:nomedapasta?parametros
 				from("file:pedidos?delay=5s&noop=true").
+					routeId("rota-pedidos").
+				multicast(). // pega a mensagem do camel e faz um multicast para as subrotas
+					parallelProcessing(). //Configuração que o multicast() possui para processar cada subrota em uma Thread separada
+						to("direct:http"). // direct -> forma que o CAMEL chama uma subrota
+						to("direct:soap");
+				
+				from("direct:http").
+					routeId("rota-http").
+					setProperty("pedidoId", xpath("/pedido/id/text()")).
+					setProperty("clienteId", xpath("/pedido/pagamento/email-titular/text()")).
 					split().
 						xpath("/pedido/itens/item").
 					filter().
 						xpath("/item/formato[text()='EBOOK']").
+					setProperty("ebookId", xpath("/item/livro/codigo/text()")).
 					// o camel lê o arquivo e internamente transforma em uma mensagem e gera um id
 				    // o ID do log é o ID que o Camel gerou
 					marshal().xmljson().
-					log("${body}").
+					//log("${body}").
+					setHeader(Exchange.HTTP_METHOD, HttpMethods.POST).
+				to("http4://localhost:8080/webservices/ebook/item").
 					setHeader(Exchange.HTTP_METHOD, HttpMethods.GET).
-					setHeader(Exchange.HTTP_QUERY, constant("ebookId=ARQ")).
+					setHeader(Exchange.HTTP_QUERY, simple("ebookId=${property.ebookId}&pedidoId=${property.pedidoId}&clienteId=${property.clienteId}")).
 				to("http4://localhost:8080/webservices/ebook/item");
+				
+				from("direct:soap").
+					routeId("rota-soap").
+					log("RouteId [${routeId}] - messageId [${id}] - sending order...").
+					to("xslt:pedido-para-soap.xslt"). // Message Translator - EIP
+					setHeader(Exchange.CONTENT_TYPE, constant("text/xml")).
+				to("http4://localhost:8080/webservices/financeiro");
 			}
-		});
+		});	
 		
 		context.start();
 		Thread.sleep(20_000);
