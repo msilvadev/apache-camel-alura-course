@@ -15,7 +15,7 @@ public class RotaPedidos {
 
 	public static void main(String[] args) throws Exception {
 		
-		// CAMEL É UMA ROUTING ENGINE
+		//  CAMEL IS A ROUTING ENGINE
 		CamelContext context = new DefaultCamelContext();
 		
 		context.addComponent("activemq", ActiveMQComponent.activeMQComponent("tcp://localhost:61616/"));
@@ -41,7 +41,7 @@ public class RotaPedidos {
 //				            }
 //				    });
 				
-				errorHandler(deadLetterChannel("activemq:queue:pedidos.DLQ"). // O nome deadLetter vem da mensageria (por exemplo, JMS), onde há uma fila especial para receber mensagens que não podem ser entregues.
+				errorHandler(deadLetterChannel("activemq:queue:orders.DLQ"). // O nome deadLetter vem da mensageria (por exemplo, JMS), onde há uma fila especial para receber mensagens que não podem ser entregues.
 						useOriginalMessage(). // will keep the original message
 						logExhaustedMessageHistory(true).
 							maximumRedeliveries(3). // try 3 times
@@ -59,8 +59,8 @@ public class RotaPedidos {
 				// PADRÃO FILE SHARING
 				//nomeDoComponente:nomedapasta?parametros
 				//from("file:pedidos?delay=5s&noop=true").
-				from("activemq:queue:pedidos").
-					routeId("rota-pedidos").
+				from("activemq:queue:orders").
+					routeId("route-orders").
 					to("validator:pedido.xsd").
 					multicast(). // pega a mensagem do camel e faz um multicast para as subrotas
 						parallelProcessing(). //Configuração que o multicast() possui para processar cada subrota em uma Thread separada
